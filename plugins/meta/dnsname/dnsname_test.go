@@ -114,10 +114,18 @@ var _ = Describe("dnsname tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Check that all configuration files are created
-			files, err := ioutil.ReadDir(filepath.Join(dnsNameConfPath(), "test"))
+			files, err := ioutil.ReadDir(dnsNameConfPath())
 			Expect(err).To(BeNil())
-			expectedFileNames := []string{"addnhosts", "dnsmasq.conf", "lock", "pidfile"}
 			var resultingFileNames []string
+			for _, f := range files {
+				resultingFileNames = append(resultingFileNames, f.Name())
+			}
+			Expect(resultingFileNames).Should(ContainElement("lock"))
+
+			files, err = ioutil.ReadDir(filepath.Join(dnsNameConfPath(), "test"))
+			Expect(err).To(BeNil())
+			expectedFileNames := []string{"addnhosts", "dnsmasq.conf", "pidfile"}
+			resultingFileNames = nil
 			for _, f := range files {
 				resultingFileNames = append(resultingFileNames, f.Name())
 			}

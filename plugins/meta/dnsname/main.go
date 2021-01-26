@@ -69,7 +69,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}
 	// we use the configuration directory for our locking mechanism but read/write and hup
-	lock, err := getLock(domainBaseDir)
+	lock, err := getLock(dnsNameConfPath())
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	defer func() {
 		if err := lock.release(); err != nil {
-			logrus.Errorf("unable to release lock for %q: %v", dnsNameConf.AddOnHostsFile, err)
+			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
 	if err := checkForDNSMasqConfFile(dnsNameConf); err != nil {
@@ -117,8 +117,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	domainBaseDir := filepath.Dir(dnsNameConf.PidFile)
-	lock, err := getLock(domainBaseDir)
+	lock, err := getLock(dnsNameConfPath())
 	if err != nil {
 		return err
 	}
@@ -128,10 +127,10 @@ func cmdDel(args *skel.CmdArgs) error {
 	defer func() {
 		// if the lock isn't given up by another process
 		if err := lock.release(); err != nil {
-			logrus.Errorf("unable to release lock for %q: %v", domainBaseDir, err)
+			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
-	shouldHUP, err := removeFromFile(filepath.Join(domainBaseDir, hostsFileName), podname)
+	shouldHUP, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
 	if err != nil {
 		return err
 	}
@@ -168,8 +167,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	domainBaseDir := filepath.Dir(dnsNameConf.PidFile)
-	lock, err := getLock(domainBaseDir)
+	lock, err := getLock(dnsNameConfPath())
 	if err != nil {
 		return err
 	}
@@ -179,7 +177,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	defer func() {
 		// if the lock isn't given up by another process
 		if err := lock.release(); err != nil {
-			logrus.Errorf("unable to release lock for %q: %v", domainBaseDir, err)
+			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
 
