@@ -198,11 +198,11 @@ func cmdCheck(args *skel.CmdArgs) error {
 	for _, f := range files {
 		conffiles = append(conffiles, f.Name())
 	}
-	if !stringInSlice("addnhosts", conffiles) {
-		return errors.Errorf("addnhost file missing from configuration")
+	if !stringInSlice(hostsFileName, conffiles) {
+		return errors.Errorf("%s file missing from configuration", hostsFileName)
 	}
-	if !stringInSlice("dnsmasq.conf", conffiles) {
-		return errors.Errorf("dnsmasq.conf file missing from configuration")
+	if !stringInSlice(confFileName, conffiles) {
+		return errors.Errorf("%s file missing from configuration", confFileName)
 	}
 	return nil
 }
