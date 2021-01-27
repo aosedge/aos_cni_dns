@@ -36,26 +36,28 @@ func newDNSMasqFile(domainName, networkInterface, networkName string) (dnsNameFi
 func (d dnsNameFile) hup() error {
 	// First check for pidfile; if it does not exist, we just
 	// start the service
-	if _, err := os.Stat(d.PidFile); os.IsNotExist(err) {
-		return d.start()
-	}
-	pid, err := d.getProcess()
-	if err != nil {
-		return err
-	}
-	if !isRunning(pid) {
+	isRunning, pid := d.isRunning()
+	if !isRunning {
 		return d.start()
 	}
 	return pid.Signal(unix.SIGHUP)
 }
 
-// isRunning sends a signal 0 to the pid to determine if it
+// determines if selected dnsmasq instance is running
+// it sends a signal 0 to the pid to determine if it
 // responds or not
-func isRunning(pid *os.Process) bool {
-	if err := pid.Signal(syscall.Signal(0)); err != nil {
-		return false
+func (d dnsNameFile) isRunning() (bool, *os.Process) {
+	if _, err := os.Stat(d.PidFile); os.IsNotExist(err) {
+		return false, nil
 	}
-	return true
+	pid, err := d.getProcess()
+	if err != nil {
+		return false, nil
+	}
+	if err := pid.Signal(syscall.Signal(0)); err != nil {
+		return false, nil
+	}
+	return true, pid
 }
 
 // start starts the dnsmasq instance.

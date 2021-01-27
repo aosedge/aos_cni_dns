@@ -180,14 +180,8 @@ func cmdCheck(args *skel.CmdArgs) error {
 			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
-
-	pid, err := dnsNameConf.getProcess()
-	if err != nil {
-		return err
-	}
-
 	// Ensure the dnsmasq instance is running
-	if !isRunning(pid) {
+	if isRunning, _ := dnsNameConf.isRunning(); !isRunning {
 		return errors.Errorf("dnsmasq instance not running")
 	}
 	// Above will make sure the pidfile exists
