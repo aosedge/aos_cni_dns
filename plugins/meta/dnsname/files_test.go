@@ -20,15 +20,17 @@ bind-dynamic
 no-hosts
 interface=cni0
 addn-hosts=%{path}/cni0/addnhosts
+conf-file=%{path}/cni0/localservers.conf
 `, "%{path}", dnsNameConfPath())
 
 	testConfig := dnsNameFile{
-		AddOnHostsFile:   makePath("cni0", hostsFileName),
-		Binary:           "/usr/bin/foo",
-		ConfigFile:       makePath("cni0", confFileName),
-		Domain:           "foobar.org",
-		NetworkInterface: "cni0",
-		PidFile:          makePath("cni0", pidFileName),
+		AddOnHostsFile:       makePath("cni0", hostsFileName),
+		Binary:               "/usr/bin/foo",
+		ConfigFile:           makePath("cni0", confFileName),
+		Domain:               "foobar.org",
+		NetworkInterface:     "cni0",
+		PidFile:              makePath("cni0", pidFileName),
+		LocalServersConfFile: makePath("cni0", localServersConfFileName),
 	}
 	type args struct {
 		config dnsNameFile

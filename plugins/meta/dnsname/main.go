@@ -88,12 +88,17 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err := appendToFile(dnsNameConf.AddOnHostsFile, podname, aliases, ips); err != nil {
 		return err
 	}
-	// Now we need to HUP
-	if err := dnsNameConf.hup(); err != nil {
-		return err
-	}
 	nameservers, err := getInterfaceAddresses(dnsNameConf)
 	if err != nil {
+		return err
+	}
+	if isRunning, _ := dnsNameConf.isRunning(); !isRunning {
+		if err := addLocalServers(dnsNameConf, nameservers); err != nil {
+			return err
+		}
+	}
+	// Now we need to HUP
+	if err := dnsNameConf.hup(); err != nil {
 		return err
 	}
 	// keep anything that was passed in already
@@ -137,6 +142,13 @@ func cmdDel(args *skel.CmdArgs) error {
 	if !shouldHUP {
 		// if there are no hosts, we should just stop the dnsmasq instance to not take
 		// system resources
+		nameservers, err := getInterfaceAddresses(dnsNameConf)
+		if err != nil {
+			return err
+		}
+		if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
+			return err
+		}
 		if err := dnsNameConf.stop(); err != nil {
 			return err
 		}
@@ -144,6 +156,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		if err := os.RemoveAll(filepath.Dir(dnsNameConf.PidFile)); err != nil {
 			return err
 		}
+		return nil
 	}
 	// Now we need to HUP
 	return dnsNameConf.hup()

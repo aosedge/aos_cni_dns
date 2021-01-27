@@ -124,7 +124,8 @@ var _ = Describe("dnsname tests", func() {
 
 			files, err = ioutil.ReadDir(filepath.Join(dnsNameConfPath(), "test"))
 			Expect(err).To(BeNil())
-			expectedFileNames := []string{hostsFileName, confFileName, pidFileName}
+			expectedFileNames := []string{hostsFileName, confFileName, localServersConfFileName,
+				ownServersConfFileName, pidFileName}
 			resultingFileNames = nil
 			for _, f := range files {
 				resultingFileNames = append(resultingFileNames, f.Name())

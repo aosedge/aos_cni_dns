@@ -21,12 +21,14 @@ func newDNSMasqFile(domainName, networkInterface, networkName string) (dnsNameFi
 		return dnsNameFile{}, errors.Errorf("the dnsmasq cni plugin requires the dnsmasq binary be in PATH")
 	}
 	masqConf := dnsNameFile{
-		ConfigFile:       makePath(networkName, confFileName),
-		Domain:           domainName,
-		PidFile:          makePath(networkName, pidFileName),
-		NetworkInterface: networkInterface,
-		AddOnHostsFile:   makePath(networkName, hostsFileName),
-		Binary:           dnsMasqBinary,
+		ConfigFile:           makePath(networkName, confFileName),
+		Domain:               domainName,
+		PidFile:              makePath(networkName, pidFileName),
+		NetworkInterface:     networkInterface,
+		AddOnHostsFile:       makePath(networkName, hostsFileName),
+		Binary:               dnsMasqBinary,
+		LocalServersConfFile: makePath(networkName, localServersConfFileName),
+		OwnServersConfFile:   makePath(networkName, ownServersConfFileName),
 	}
 	return masqConf, nil
 }
@@ -67,8 +69,12 @@ func (d dnsNameFile) start() error {
 		"root",
 		fmt.Sprintf("--conf-file=%s", d.ConfigFile),
 	}
-	cmd := exec.Command(d.Binary, args...)
-	return cmd.Run()
+	output, err := exec.Command(d.Binary, args...).CombinedOutput()
+	if err != nil {
+		return errors.Errorf("Message: %s, err: %v", string(output), err)
+	}
+
+	return nil
 }
 
 // stop stops the dnsmasq instance.
