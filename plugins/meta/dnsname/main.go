@@ -137,7 +137,13 @@ func cmdDel(args *skel.CmdArgs) error {
 	if !shouldHUP {
 		// if there are no hosts, we should just stop the dnsmasq instance to not take
 		// system resources
-		return dnsNameConf.stop()
+		if err := dnsNameConf.stop(); err != nil {
+			return err
+		}
+		// remove netwoks dir
+		if err := os.RemoveAll(filepath.Dir(dnsNameConf.PidFile)); err != nil {
+			return err
+		}
 	}
 	// Now we need to HUP
 	return dnsNameConf.hup()
