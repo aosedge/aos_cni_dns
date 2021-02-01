@@ -15,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var chainArgs = []string{"-p", "udp", "-m", "udp", "--dport", "53", "-j", "ACCEPT"}
+
 // dnsNameLock embeds the CNI disk lock so we can hang methods from it
 type dnsNameLock struct {
 	lock *disk.FileLock
@@ -54,11 +56,17 @@ func checkForDNSMasqConfFile(conf dnsNameFile) error {
 	if err != nil {
 		return err
 	}
+	// Generate the template and compile it.
+	return ioutil.WriteFile(conf.ConfigFile, newConfig, 0700)
+}
+
+// addIPTablesChain adds dnsmasq iptables chain
+func addIPTablesChain(interfaceName string) error {
 	ip, err := iptables.New()
 	if err != nil {
 		return err
 	}
-	args := []string{"-i", conf.NetworkInterface, "-p", "udp", "-m", "udp", "--dport", "53", "-j", "ACCEPT"}
+	args := append([]string{"-i", interfaceName}, chainArgs...)
 	exists, err := ip.Exists("filter", "INPUT", args...)
 	if err != nil {
 		return err
@@ -68,8 +76,17 @@ func checkForDNSMasqConfFile(conf dnsNameFile) error {
 			return err
 		}
 	}
-	// Generate the template and compile it.
-	return ioutil.WriteFile(conf.ConfigFile, newConfig, 0700)
+	return nil
+}
+
+// deleteIPTablesChain deletes dnsmasq iptables chain
+func deleteIPTablesChain(interfaceName string) error {
+	ip, err := iptables.New()
+	if err != nil {
+		return err
+	}
+	args := append([]string{"-i", interfaceName}, chainArgs...)
+	return ip.DeleteIfExists("filter", "INPUT", args...)
 }
 
 // generateDNSMasqConfig fills out the configuration file template for the dnsmasq service

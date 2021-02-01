@@ -84,6 +84,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err := checkForDNSMasqConfFile(dnsNameConf); err != nil {
 		return err
 	}
+	if err := addIPTablesChain(dnsNameConf.NetworkInterface); err != nil {
+		return err
+	}
 	aliases := netConf.RuntimeConfig.Aliases[netConf.Name]
 	if err := appendToFile(dnsNameConf.AddOnHostsFile, podname, aliases, ips); err != nil {
 		return err
@@ -135,6 +138,9 @@ func cmdDel(args *skel.CmdArgs) error {
 			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
+	if err := deleteIPTablesChain(dnsNameConf.NetworkInterface); err != nil {
+		return err
+	}
 	shouldHUP, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
 	if err != nil {
 		return err
