@@ -15,20 +15,22 @@ import (
 )
 
 // newDNSMasqFile creates a new instance of a dnsNameFile
-func newDNSMasqFile(domainName, networkInterface, networkName string) (dnsNameFile, error) {
+func newDNSMasqFile(domainName, networkInterface, networkName string, multiDomain bool) (dnsNameFile, error) {
 	dnsMasqBinary, err := exec.LookPath("dnsmasq")
 	if err != nil {
 		return dnsNameFile{}, errors.Errorf("the dnsmasq cni plugin requires the dnsmasq binary be in PATH")
 	}
 	masqConf := dnsNameFile{
-		ConfigFile:           makePath(networkName, confFileName),
-		Domain:               domainName,
-		PidFile:              makePath(networkName, pidFileName),
-		NetworkInterface:     networkInterface,
-		AddOnHostsFile:       makePath(networkName, hostsFileName),
-		Binary:               dnsMasqBinary,
-		LocalServersConfFile: makePath(networkName, localServersConfFileName),
-		OwnServersConfFile:   makePath(networkName, ownServersConfFileName),
+		ConfigFile:       makePath(networkName, confFileName),
+		Domain:           domainName,
+		PidFile:          makePath(networkName, pidFileName),
+		NetworkInterface: networkInterface,
+		AddOnHostsFile:   makePath(networkName, hostsFileName),
+		Binary:           dnsMasqBinary,
+	}
+	if multiDomain {
+		masqConf.LocalServersConfFile = makePath(networkName, localServersConfFileName)
+		masqConf.OwnServersConfFile = makePath(networkName, ownServersConfFileName)
 	}
 	return masqConf, nil
 }

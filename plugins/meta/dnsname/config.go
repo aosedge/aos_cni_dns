@@ -47,6 +47,7 @@ var (
 type DNSNameConf struct {
 	types.NetConf
 	DomainName    string   `json:"domainName"`
+	MultiDomain   bool     `json:"multiDomain"`
 	RuntimeConfig struct { // The capability arg
 		Aliases map[string][]string `json:"aliases"`
 	} `json:"runtimeConfig,omitempty"`

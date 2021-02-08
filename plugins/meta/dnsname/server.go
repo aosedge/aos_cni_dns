@@ -57,7 +57,8 @@ func removeLocalServers(conf dnsNameFile, servers []string) error {
 
 // adds server items to specific dnsmasq instance
 func addServersToInstance(networkName string, serverItems []string) ([]string, error) {
-	conf, err := newDNSMasqFile("", "", networkName)
+	// set multiDomain as true in newDNSMasqFile as this code is called only for multi domain
+	conf, err := newDNSMasqFile("", "", networkName, true)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,8 @@ func addServersToInstance(networkName string, serverItems []string) ([]string, e
 
 // removes server items from specific dnsmasq instance
 func removeServersFromInstance(networkName string, serverItems []string) error {
-	conf, err := newDNSMasqFile("", "", networkName)
+	// set multiDomain as true in newDNSMasqFile as this code is called only for multi domain
+	conf, err := newDNSMasqFile("", "", networkName, true)
 	if err != nil {
 		return err
 	}

@@ -30,6 +30,7 @@ var _ = Describe("dnsname tests", func() {
   "cniVersion": "0.4.0",
   "name": "test",
   "type": "dnsname",
+  "multiDomain": true,
   "domainName": "foobar.io",
   "prevResult": {
     "cniVersion": "0.4.0",
@@ -132,7 +133,7 @@ var _ = Describe("dnsname tests", func() {
 			}
 			Expect(reflect.DeepEqual(expectedFileNames, resultingFileNames)).To(BeTrue())
 
-			d, err := newDNSMasqFile("foobar.io", "dummy0", "test")
+			d, err := newDNSMasqFile("foobar.io", "dummy0", "test", true)
 			Expect(err).To(BeNil())
 
 			// Check that the dns masq instance is running
@@ -172,7 +173,7 @@ var _ = Describe("dnsname tests", func() {
 			_, err = current.GetResult(r)
 			Expect(err).NotTo(HaveOccurred())
 
-			d, err := newDNSMasqFile("foobar.io", "dummy0", "test")
+			d, err := newDNSMasqFile("foobar.io", "dummy0", "test", true)
 			Expect(err).To(BeNil())
 
 			pid, err := d.getProcess()

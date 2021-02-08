@@ -57,7 +57,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name)
+	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name, netConf.MultiDomain)
 	if err != nil {
 		return err
 	}
@@ -95,9 +95,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	if isRunning, _ := dnsNameConf.isRunning(); !isRunning {
-		if err := addLocalServers(dnsNameConf, nameservers); err != nil {
-			return err
+	if netConf.MultiDomain {
+		if isRunning, _ := dnsNameConf.isRunning(); !isRunning {
+			if err := addLocalServers(dnsNameConf, nameservers); err != nil {
+				return err
+			}
 		}
 	}
 	// Now we need to HUP
@@ -121,7 +123,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	} else if result == nil {
 		return nil
 	}
-	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name)
+	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name, netConf.MultiDomain)
 	if err != nil {
 		return err
 	}
@@ -152,8 +154,10 @@ func cmdDel(args *skel.CmdArgs) error {
 		if err != nil {
 			return err
 		}
-		if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
-			return err
+		if netConf.MultiDomain {
+			if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
+				return err
+			}
 		}
 		if err := dnsNameConf.stop(); err != nil {
 			return err
@@ -188,7 +192,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	if result == nil {
 		return errors.Errorf("Required prevResult missing")
 	}
-	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name)
+	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name, netConf.MultiDomain)
 	if err != nil {
 		return err
 	}
