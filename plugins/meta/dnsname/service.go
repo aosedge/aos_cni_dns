@@ -82,10 +82,19 @@ func (d dnsNameFile) start() error {
 // stop stops the dnsmasq instance.
 func (d dnsNameFile) stop() error {
 	pid, err := d.getProcess()
+	if os.IsNotExist(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	return pid.Kill()
+	if err = pid.Kill(); err != nil {
+		if strings.Contains(err.Error(), "process already finished") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // getProcess reads the PID for the dnsmasq instance and returns an
