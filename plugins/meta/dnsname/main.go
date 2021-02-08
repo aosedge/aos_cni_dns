@@ -42,7 +42,40 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func cmdAdd(args *skel.CmdArgs) error {
+func cleanUp(podname string, dnsNameConf dnsNameFile, multiDomain bool) error {
+	if err := deleteIPTablesChain(dnsNameConf.NetworkInterface); err != nil {
+		return err
+	}
+	shouldHUP, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
+	if err != nil {
+		return err
+	}
+	if !shouldHUP {
+		// if there are no hosts, we should just stop the dnsmasq instance to not take
+		// system resources
+		nameservers, err := getInterfaceAddresses(dnsNameConf)
+		if err != nil {
+			return err
+		}
+		if multiDomain {
+			if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
+				return err
+			}
+		}
+		if err := dnsNameConf.stop(); err != nil {
+			return err
+		}
+		// remove netwoks dir
+		if err := os.RemoveAll(filepath.Dir(dnsNameConf.PidFile)); err != nil {
+			return err
+		}
+		return nil
+	}
+	// Now we need to HUP
+	return dnsNameConf.hup()
+}
+
+func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err := findDNSMasq(); err != nil {
 		return ErrBinaryNotFound
 	}
@@ -77,6 +110,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 	defer func() {
+		if err != nil {
+			if err := cleanUp(podname, dnsNameConf, netConf.MultiDomain); err != nil {
+				logrus.Errorf("Can't cleanup: %v", err)
+			}
+		}
 		if err := lock.release(); err != nil {
 			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
@@ -140,36 +178,7 @@ func cmdDel(args *skel.CmdArgs) error {
 			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
-	if err := deleteIPTablesChain(dnsNameConf.NetworkInterface); err != nil {
-		return err
-	}
-	shouldHUP, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
-	if err != nil {
-		return err
-	}
-	if !shouldHUP {
-		// if there are no hosts, we should just stop the dnsmasq instance to not take
-		// system resources
-		nameservers, err := getInterfaceAddresses(dnsNameConf)
-		if err != nil {
-			return err
-		}
-		if netConf.MultiDomain {
-			if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
-				return err
-			}
-		}
-		if err := dnsNameConf.stop(); err != nil {
-			return err
-		}
-		// remove netwoks dir
-		if err := os.RemoveAll(filepath.Dir(dnsNameConf.PidFile)); err != nil {
-			return err
-		}
-		return nil
-	}
-	// Now we need to HUP
-	return dnsNameConf.hup()
+	return cleanUp(podname, dnsNameConf, netConf.MultiDomain)
 }
 
 func main() {
