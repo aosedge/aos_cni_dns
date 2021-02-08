@@ -1,6 +1,10 @@
 package main
 
 import (
+	"io/ioutil"
+	"net"
+	"os"
+	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -55,5 +59,72 @@ conf-file=%{path}/cni0/localservers.conf
 				t.Errorf("generateDNSMasqConfig() got = '%v', want '%v'", string(got), string(tt.want))
 			}
 		})
+	}
+}
+
+func Test_appendToFile(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "cni_*")
+	if err != nil {
+		t.Fatalf("Can't create dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+	testFile := path.Join(tmpDir, "hosts")
+	initialContent := `192.168.0.1	pod1	aliasPod1
+192.168.0.2	pod2	aliasPod2
+`
+	if err := ioutil.WriteFile(testFile, []byte(initialContent), 0644); err != nil {
+		t.Fatalf("Can't write initial file: %v", err)
+	}
+	if err := appendToFile(testFile, "pod3", []string{"aliasPod3"},
+		[]*net.IPNet{{IP: net.IP{192, 168, 0, 3}, Mask: nil}}); err != nil {
+		t.Fatalf("Can't append to file: %v", err)
+	}
+	testResult := `192.168.0.1	pod1	aliasPod1
+192.168.0.2	pod2	aliasPod2
+192.168.0.3	pod3	aliasPod3
+`
+	got, err := ioutil.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Can't read file: %v", err)
+	}
+	if string(got) != testResult {
+		t.Errorf("appendToFile() got = '%v', want '%v'", string(got), string(testResult))
+	}
+	if err := appendToFile(testFile, "pod", []string{"aliasPod3"},
+		[]*net.IPNet{{IP: net.IP{192, 168, 0, 4}, Mask: nil}}); err == nil {
+		t.Error("New data should not be appended due to unique host violation")
+	}
+}
+
+func Test_removeFromFile(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "cni_*")
+	if err != nil {
+		t.Fatalf("Can't create dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+	testFile := path.Join(tmpDir, "hosts")
+	initialContent := `192.168.0.1	pod1	aliasPod1
+192.168.0.2	pod2	aliasPod2
+192.168.0.3	pod3	aliasPod3
+`
+	if err := ioutil.WriteFile(testFile, []byte(initialContent), 0644); err != nil {
+		t.Fatalf("Can't write initial file: %v", err)
+	}
+	shouldHUP, err := removeFromFile(testFile, "pod3")
+	if err != nil {
+		t.Fatalf("Can't remove from file: %v", err)
+	}
+	if !shouldHUP {
+		t.Error("Should HUP")
+	}
+	testResult := `192.168.0.1	pod1	aliasPod1
+192.168.0.2	pod2	aliasPod2
+`
+	got, err := ioutil.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Can't read file: %v", err)
+	}
+	if string(got) != testResult {
+		t.Errorf("appendToFile() got = '%v', want '%v'", string(got), string(testResult))
 	}
 }

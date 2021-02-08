@@ -12,6 +12,7 @@ import (
 
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/disk"
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -105,7 +106,7 @@ func generateDNSMasqConfig(config dnsNameFile) ([]byte, error) {
 
 // appendToFile appends a new entry to the dnsmasqs hosts file
 func appendToFile(path, podname string, aliases []string, ips []*net.IPNet) error {
-	f, err := openFile(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
@@ -114,6 +115,22 @@ func appendToFile(path, podname string, aliases []string, ips []*net.IPNet) erro
 			logrus.Errorf("failed to close file %q: %v", path, err)
 		}
 	}()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) > 1 {
+			for _, item := range fields[1:] {
+				for _, alias := range aliases {
+					if alias == item {
+						return errors.Errorf("Alias %s already exists", alias)
+					}
+				}
+				if item == podname {
+					return errors.Errorf("Host %s already exists", podname)
+				}
+			}
+		}
+	}
 	for _, ip := range ips {
 		entry := fmt.Sprintf("%s\t%s", ip.IP.String(), podname)
 		for _, alias := range aliases {
@@ -192,7 +209,7 @@ func renameFile(oldpath, newpath string) {
 // of lines in the file
 func writeFile(path string, content []string) (int, error) {
 	var counter int
-	f, err := openFile(path)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return 0, err
 	}
@@ -209,9 +226,4 @@ func writeFile(path string, content []string) (int, error) {
 		counter++
 	}
 	return counter, nil
-}
-
-// openFile opens a file for reading
-func openFile(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
