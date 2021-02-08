@@ -7,11 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // adds local servers to existing dnsmasq instances
 func addLocalServers(conf dnsNameFile, servers []string) error {
-	serverItems := serversToServerItems(servers)
+	serverItems := serversToServerItems(conf.Domain, servers)
 	// write own servers to file
 	if err := writeServerItems(conf.OwnServersConfFile, serverItems); err != nil {
 		return err
@@ -25,7 +28,7 @@ func addLocalServers(conf dnsNameFile, servers []string) error {
 	}
 	for _, item := range items {
 		if item.IsDir() && item.Name() != curDir {
-			instanceServers, err := addServersToInstance(item.Name(), serverItems)
+			instanceServers, err := addServersToInstance(item.Name(), conf.Domain, serverItems)
 			if err != nil {
 				return err
 			}
@@ -38,7 +41,7 @@ func addLocalServers(conf dnsNameFile, servers []string) error {
 
 // removes local servers from existing dnsmasq instances
 func removeLocalServers(conf dnsNameFile, servers []string) error {
-	serverItems := serversToServerItems(servers)
+	serverItems := serversToServerItems(conf.Domain, servers)
 	// walk through existing dnsmasq and remove local servers
 	curDir := filepath.Base(filepath.Dir(conf.LocalServersConfFile))
 	items, err := ioutil.ReadDir(filepath.Join(dnsNameConfPath()))
@@ -56,11 +59,18 @@ func removeLocalServers(conf dnsNameFile, servers []string) error {
 }
 
 // adds server items to specific dnsmasq instance
-func addServersToInstance(networkName string, serverItems []string) ([]string, error) {
+func addServersToInstance(networkName, domainName string, serverItems []string) ([]string, error) {
 	// set multiDomain as true in newDNSMasqFile as this code is called only for multi domain
 	conf, err := newDNSMasqFile("", "", networkName, true)
 	if err != nil {
 		return nil, err
+	}
+	ownServerItems, err := readServerItems(conf.OwnServersConfFile)
+	if err != nil {
+		return nil, err
+	}
+	if isDomainInList(domainName, ownServerItems) {
+		return nil, errors.Errorf("domain %s already exists", domainName)
 	}
 	curServerItems, err := readServerItems(conf.LocalServersConfFile)
 	if err != nil {
@@ -74,17 +84,30 @@ func addServersToInstance(networkName string, serverItems []string) ([]string, e
 		}
 		// if instance is running send hup signal to apply new configuration
 		if isRunning, _ := conf.isRunning(); isRunning {
+			if err := conf.stop(); err != nil {
+				return nil, err
+			}
 			if err := conf.hup(); err != nil {
 				return nil, err
 			}
 		}
 	}
-	ownServerItems, err := readServerItems(conf.OwnServersConfFile)
-	if err != nil {
-		return nil, err
-	}
 	// returns instance local servers + own servers
 	return append(curServerItems, ownServerItems...), nil
+}
+
+// checks if server items has the domain name
+func isDomainInList(domainName string, serverItems []string) bool {
+	for _, item := range serverItems {
+		fields := strings.Split(item, "/")
+		if len(fields) < 3 {
+			continue
+		}
+		if domainName == fields[1] {
+			return true
+		}
+	}
+	return false
 }
 
 // removes server items from specific dnsmasq instance
@@ -106,6 +129,9 @@ func removeServersFromInstance(networkName string, serverItems []string) error {
 		}
 		// if instance is running send hup signal to apply new configuration
 		if isRunning, _ := conf.isRunning(); isRunning {
+			if err := conf.stop(); err != nil {
+				return err
+			}
 			if err := conf.hup(); err != nil {
 				return err
 			}
@@ -181,10 +207,10 @@ func writeServerItems(fileName string, servers []string) error {
 // converts server IPs to dnsmasq
 // generate servers items in dnsmasq config format: server=ip
 // if resolution by domain name is required the format should be: server=/domain/ip
-func serversToServerItems(servers []string) []string {
+func serversToServerItems(domainName string, servers []string) []string {
 	serverItems := make([]string, 0, len(servers))
 	for _, server := range servers {
-		serverItems = append(serverItems, fmt.Sprintf("server=%s", server))
+		serverItems = append(serverItems, fmt.Sprintf("server=/%s/%s", domainName, server))
 	}
 	return serverItems
 }

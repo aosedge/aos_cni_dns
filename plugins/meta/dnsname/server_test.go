@@ -34,29 +34,27 @@ func createNetwork(networkName string, localServers string, ownServers string) e
 }
 
 func TestAddLocalServers(t *testing.T) {
-	if err := cleanupAll(); err != nil {
-		t.Fatalf("Can't cleanup: %v", err)
-	}
-	localServers := `server=192.168.2.1
-server=192.168.3.1
+	t.Cleanup(func() { cleanupAll() })
+	localServers := `server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `
-	ownServers := `server=192.168.1.1
+	ownServers := `server=/net1/192.168.1.1
 `
 	if err := createNetwork("net1", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	localServers = `server=192.168.1.1
-server=192.168.3.1
+	localServers = `server=/net1/192.168.1.1
+server=/net3/192.168.3.1
 `
-	ownServers = `server=192.168.2.1
+	ownServers = `server=/net2/192.168.2.1
 `
 	if err := createNetwork("net2", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	localServers = `server=192.168.1.1
-server=192.168.2.1
+	localServers = `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
 `
-	ownServers = `server=192.168.3.1
+	ownServers = `server=/net3/192.168.3.1
 `
 	if err := createNetwork("net3", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
@@ -64,7 +62,7 @@ server=192.168.2.1
 	if err := os.MkdirAll(filepath.Join(dnsNameConfPath(), "net4"), 0700); err != nil {
 		t.Fatalf("Can't create network dir: %v", err)
 	}
-	conf, err := newDNSMasqFile("", "", "net4")
+	conf, err := newDNSMasqFile("net4", "", "net4", true)
 	if err != nil {
 		t.Fatalf("Can't create conf: %v", err)
 	}
@@ -74,38 +72,38 @@ server=192.168.2.1
 	testData := []testServerData{
 		{
 			networkName: "net1",
-			localServers: `server=192.168.2.1
-server=192.168.3.1
-server=192.168.4.1
+			localServers: `server=/net2/192.168.2.1
+server=/net3/192.168.3.1
+server=/net4/192.168.4.1
 `,
-			ownServers: `server=192.168.1.1
+			ownServers: `server=/net1/192.168.1.1
 `,
 		},
 		{
 			networkName: "net2",
-			localServers: `server=192.168.1.1
-server=192.168.3.1
-server=192.168.4.1
+			localServers: `server=/net1/192.168.1.1
+server=/net3/192.168.3.1
+server=/net4/192.168.4.1
 `,
-			ownServers: `server=192.168.2.1
+			ownServers: `server=/net2/192.168.2.1
 `,
 		},
 		{
 			networkName: "net3",
-			localServers: `server=192.168.1.1
-server=192.168.2.1
-server=192.168.4.1
+			localServers: `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
+server=/net4/192.168.4.1
 `,
-			ownServers: `server=192.168.3.1
+			ownServers: `server=/net3/192.168.3.1
 `,
 		},
 		{
 			networkName: "net4",
-			localServers: `server=192.168.1.1
-server=192.168.2.1
-server=192.168.3.1
+			localServers: `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `,
-			ownServers: `server=192.168.4.1
+			ownServers: `server=/net4/192.168.4.1
 `,
 		},
 	}
@@ -128,47 +126,67 @@ server=192.168.3.1
 	}
 }
 
-func TestRemoveLocalServers(t *testing.T) {
-	if err := cleanupAll(); err != nil {
-		t.Fatalf("Can't cleanup: %v", err)
-	}
-	localServers := `server=192.168.2.1
-server=192.168.3.1
-server=192.168.4.1
+func TestAddSameDomain(t *testing.T) {
+	t.Cleanup(func() { cleanupAll() })
+	localServers := `server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `
-	ownServers := `server=192.168.1.1
+	ownServers := `server=/net1/192.168.1.1
 `
 	if err := createNetwork("net1", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	localServers = `server=192.168.1.1
-server=192.168.3.1
-server=192.168.4.1
+	if err := os.MkdirAll(filepath.Join(dnsNameConfPath(), "net4"), 0700); err != nil {
+		t.Fatalf("Can't create network dir: %v", err)
+	}
+	conf, err := newDNSMasqFile("net1", "", "net4", true)
+	if err != nil {
+		t.Fatalf("Can't create conf: %v", err)
+	}
+	if err := addLocalServers(conf, []string{"192.168.4.1"}); err == nil {
+		t.Fatal("Adding servers should fail due to duplicate domain")
+	}
+}
+
+func TestRemoveLocalServers(t *testing.T) {
+	t.Cleanup(func() { cleanupAll() })
+	localServers := `server=/net2/192.168.2.1
+server=/net3/192.168.3.1
+server=/net4/192.168.4.1
 `
-	ownServers = `server=192.168.2.1
+	ownServers := `server=/net1/192.168.1.1
+`
+	if err := createNetwork("net1", localServers, ownServers); err != nil {
+		t.Fatalf("Can't create network: %v", err)
+	}
+	localServers = `server=/net1/192.168.1.1
+server=/net3/192.168.3.1
+server=/net4/192.168.4.1
+`
+	ownServers = `server=/net2/192.168.2.1
 `
 	if err := createNetwork("net2", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	localServers = `server=192.168.1.1
-server=192.168.2.1
-server=192.168.4.1
+	localServers = `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
+server=/net4/192.168.4.1
 `
-	ownServers = `server=192.168.3.1
+	ownServers = `server=/net3/192.168.3.1
 `
 	if err := createNetwork("net3", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	localServers = `server=192.168.1.1
-server=192.168.2.1
-server=192.168.3.1
+	localServers = `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `
-	ownServers = `server=192.168.4.1
+	ownServers = `server=/net4/192.168.4.1
 `
 	if err := createNetwork("net4", localServers, ownServers); err != nil {
 		t.Fatalf("Can't create network: %v", err)
 	}
-	conf, err := newDNSMasqFile("", "", "net4")
+	conf, err := newDNSMasqFile("net4", "", "net4", true)
 	if err != nil {
 		t.Fatalf("Can't create conf: %v", err)
 	}
@@ -178,35 +196,35 @@ server=192.168.3.1
 	testData := []testServerData{
 		{
 			networkName: "net1",
-			localServers: `server=192.168.2.1
-server=192.168.3.1
+			localServers: `server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `,
-			ownServers: `server=192.168.1.1
+			ownServers: `server=/net1/192.168.1.1
 `,
 		},
 		{
 			networkName: "net2",
-			localServers: `server=192.168.1.1
-server=192.168.3.1
+			localServers: `server=/net1/192.168.1.1
+server=/net3/192.168.3.1
 `,
-			ownServers: `server=192.168.2.1
+			ownServers: `server=/net2/192.168.2.1
 `,
 		},
 		{
 			networkName: "net3",
-			localServers: `server=192.168.1.1
-server=192.168.2.1
+			localServers: `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
 `,
-			ownServers: `server=192.168.3.1
+			ownServers: `server=/net3/192.168.3.1
 `,
 		},
 		{
 			networkName: "net4",
-			localServers: `server=192.168.1.1
-server=192.168.2.1
-server=192.168.3.1
+			localServers: `server=/net1/192.168.1.1
+server=/net2/192.168.2.1
+server=/net3/192.168.3.1
 `,
-			ownServers: `server=192.168.4.1
+			ownServers: `server=/net4/192.168.4.1
 `,
 		},
 	}
