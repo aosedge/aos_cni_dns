@@ -154,6 +154,9 @@ func removeFromFile(path, podname string) (bool, error) {
 	shouldHUP := false
 	backup := fmt.Sprintf("%s.old", path)
 	if err := os.Rename(path, backup); err != nil {
+		if os.IsNotExist(err) {
+			return shouldHUP, nil
+		}
 		return shouldHUP, err
 	}
 	f, err := os.Open(backup)
