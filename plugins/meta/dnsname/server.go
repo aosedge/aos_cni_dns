@@ -87,7 +87,7 @@ func addServersToInstance(networkName, domainName string, serverItems []string) 
 			if err := conf.stop(); err != nil {
 				return nil, err
 			}
-			if err := conf.hup(); err != nil {
+			if err := conf.start(); err != nil {
 				return nil, err
 			}
 		}
@@ -132,7 +132,7 @@ func removeServersFromInstance(networkName string, serverItems []string) error {
 			if err := conf.stop(); err != nil {
 				return err
 			}
-			if err := conf.hup(); err != nil {
+			if err := conf.start(); err != nil {
 				return err
 			}
 		}
