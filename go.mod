@@ -1,4 +1,4 @@
-module github.com/containers/dnsname
+module github.com/aoscloud/aos_cni_dns
 
 go 1.18
 
