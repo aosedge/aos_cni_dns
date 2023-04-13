@@ -129,6 +129,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err := appendToFile(dnsNameConf.AddOnHostsFile, podname, aliases, ips); err != nil {
 		return err
 	}
+
+	if len(netConf.RemoteServers) > 0 {
+		if err := addRemoteServers(dnsNameConf.LocalServersConfFile, netConf.RemoteServers); err != nil {
+			return err
+		}
+	}
+
 	nameservers, err := getInterfaceAddresses(dnsNameConf)
 	if err != nil {
 		return err

@@ -12,6 +12,23 @@ import (
 	"github.com/pkg/errors"
 )
 
+// adds remote servers to existing dnsmasq instance
+func addRemoteServers(fileConfig string, remoteServers []string) error {
+	curServerItems, err := readServerItems(fileConfig)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	remoteServersItems := remoteServersToServerItems(remoteServers)
+	mergedServerItems, modified := mergeServerItems(curServerItems, remoteServersItems)
+
+	if !modified {
+		return nil
+	}
+
+	return writeServerItems(fileConfig, mergedServerItems)
+}
+
 // adds local servers to existing dnsmasq instances
 func addLocalServers(conf dnsNameFile, servers []string) error {
 	serverItems := serversToServerItems(conf.Domain, servers)
@@ -19,9 +36,15 @@ func addLocalServers(conf dnsNameFile, servers []string) error {
 	if err := writeServerItems(conf.OwnServersConfFile, serverItems); err != nil {
 		return err
 	}
+
 	// walk through existing dnsmasq and add new local servers
+	curServersItems, err := readServerItems(conf.LocalServersConfFile)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
 	curDir := filepath.Base(filepath.Dir(conf.LocalServersConfFile))
-	curServersItems := make([]string, 0)
+
 	items, err := ioutil.ReadDir(filepath.Join(dnsNameConfPath()))
 	if err != nil {
 		return err
@@ -211,6 +234,14 @@ func serversToServerItems(domainName string, servers []string) []string {
 	serverItems := make([]string, 0, len(servers))
 	for _, server := range servers {
 		serverItems = append(serverItems, fmt.Sprintf("server=/%s/%s", domainName, server))
+	}
+	return serverItems
+}
+
+func remoteServersToServerItems(remoteServer []string) []string {
+	serverItems := make([]string, len(remoteServer))
+	for i, server := range remoteServer {
+		serverItems[i] = fmt.Sprintf("server=%s", server)
 	}
 	return serverItems
 }

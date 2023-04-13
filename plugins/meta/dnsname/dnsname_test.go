@@ -32,6 +32,7 @@ var _ = Describe("dnsname tests", func() {
   "type": "dnsname",
   "multiDomain": true,
   "domainName": "foobar.io",
+  "remoteServers": ["10.10.0.1", "10.10.1.1"],
   "prevResult": {
     "cniVersion": "0.4.0",
     "interfaces": [
