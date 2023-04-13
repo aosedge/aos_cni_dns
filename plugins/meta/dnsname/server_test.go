@@ -33,6 +33,43 @@ func createNetwork(networkName string, localServers string, ownServers string) e
 	return nil
 }
 
+func TestAddRemoteServers(t *testing.T) {
+	t.Cleanup(func() { cleanupAll() })
+	localServers := `server=/local1/192.168.2.1
+server=/local2/192.168.3.1
+`
+
+	if err := createNetwork("local3", localServers, ""); err != nil {
+		t.Fatalf("Can't create network: %v", err)
+	}
+
+	networkDir := filepath.Join(dnsNameConfPath(), "local3")
+	data, err := ioutil.ReadFile(filepath.Join(networkDir, localServersConfFileName))
+	if err != nil {
+		t.Fatalf("Can't read file: %v", err)
+	}
+
+	if err := addRemoteServers(filepath.Join(dnsNameConfPath(), "local3", localServersConfFileName),
+		[]string{"10.10.1.1", "10.10.2.1"}); err != nil {
+		t.Fatalf("Can't add remote servers: %v", err)
+	}
+
+	networkDir = filepath.Join(dnsNameConfPath(), "local3")
+	data, err = ioutil.ReadFile(filepath.Join(networkDir, localServersConfFileName))
+	if err != nil {
+		t.Fatalf("Can't read file: %v", err)
+	}
+
+	expected := `server=/local1/192.168.2.1
+server=/local2/192.168.3.1
+server=10.10.1.1
+server=10.10.2.1
+`
+	if string(data) != expected {
+		t.Fatalf("Expected: %s got: %s", expected, string(data))
+	}
+}
+
 func TestAddLocalServers(t *testing.T) {
 	t.Cleanup(func() { cleanupAll() })
 	localServers := `server=/net2/192.168.2.1
