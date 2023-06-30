@@ -49,6 +49,7 @@ type DNSNameConf struct {
 	types.NetConf
 	DomainName    string   `json:"domainName"`
 	MultiDomain   bool     `json:"multiDomain"`
+	RemoteServers []string `json:"remoteServers"`
 	RuntimeConfig struct { // The capability arg
 		Aliases map[string][]string `json:"aliases"`
 	} `json:"runtimeConfig,omitempty"`
