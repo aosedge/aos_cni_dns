@@ -1,6 +1,6 @@
 module github.com/aoscloud/aos_cni_dns
 
-go 1.21
+go 1.20
 
 require (
 	github.com/containernetworking/cni v1.1.2
@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/vishvananda/netlink v1.2.1-beta.2
-	golang.org/x/sys v0.14.0
+	golang.org/x/sys v0.15.0
 )
 
 require (
