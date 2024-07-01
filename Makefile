@@ -34,7 +34,7 @@ gofmt:
 
 
 binaries:
-	$(GO_BUILD) -o bin/dnsname github.com/aoscloud/aos_cni_dns/plugins/meta/dnsname
+	$(GO_BUILD) -o bin/dnsname github.com/aosedge/aos_cni_dns/plugins/meta/dnsname
 
 .PHONY: .gitvalidation
 .gitvalidation:

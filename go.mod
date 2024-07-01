@@ -1,4 +1,4 @@
-module github.com/aoscloud/aos_cni_dns
+module github.com/aosedge/aos_cni_dns
 
 go 1.21
 
