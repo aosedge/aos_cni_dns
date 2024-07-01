@@ -16,7 +16,7 @@ Using your package manager, install the *dnsmasq* package.  For Fedora, this wou
 
 ## Build and install
 
-1. using git, clone the *github.com/aoscloud/aos_cni_dns* repository.
+1. using git, clone the *github.com/aosedge/aos_cni_dns* repository.
 2. make install PREFIX=/usr -- this will install the dnsname plugin into /usr/libexec/cni where your CNI plugins
 should already exist.
 
