@@ -16,7 +16,7 @@ CPUS="2"
 MEMORY="4Gb"
 DISK="200"
 PROJECT="dnsname"
-GOSRC="/var/tmp/go/src/github.com/aoscloud/aos_cni_dns"
+GOSRC="/var/tmp/go/src/github.com/aosedge/aos_cni_dns"
 GCLOUD_IMAGE=${GCLOUD_IMAGE:-quay.io/cevich/gcloud_centos:latest}
 GCLOUD_SUDO=${GCLOUD_SUDO-sudo}
 SSHUSER="root"
@@ -32,17 +32,15 @@ DNSNAMEROOT=$(realpath "$(dirname $0)/../")
 PGCLOUD="$GCLOUD_SUDO podman run -it --rm -e AS_ID=$UID -e AS_USER=$USER --security-opt label=disable -v $TMPDIR:$HOME -v $HOME/.config/gcloud:$HOME/.config/gcloud -v $HOME/.config/gcloud/ssh:$HOME/.ssh -v $DNSNAMEROOT:$DNSNAMEROOT $GCLOUD_IMAGE --configuration=dnsname --project=$PROJECT"
 SCP_CMD="$PGCLOUD compute scp"
 
-
 showrun() {
-    if [[ "$1" == "--background" ]]
-    then
+    if [[ "$1" == "--background" ]]; then
         shift
         # Properly escape any nested spaces, so command can be copy-pasted
-        echo '+ '$(printf " %q" "$@")' &' > /dev/stderr
+        echo '+ '$(printf " %q" "$@")' &' >/dev/stderr
         "$@" &
         echo -e "${RED}<backgrounded>${NOR}"
     else
-        echo '+ '$(printf " %q" "$@") > /dev/stderr
+        echo '+ '$(printf " %q" "$@") >/dev/stderr
         "$@"
     fi
 }
@@ -64,7 +62,7 @@ delvm() {
     echo -e "\n"
     echo -e "\n${YEL}Offering to Delete $VMNAME ${RED}(Might take a minute or two)${NOR}"
     echo -e "\n${YEL}Note: It's safe to answer N, then re-run script again later.${NOR}"
-    showrun $CLEANUP_CMD  # prompts for Yes/No
+    showrun $CLEANUP_CMD # prompts for Yes/No
     cleanup
 }
 
@@ -72,7 +70,7 @@ image_hints() {
     _BIS=$(egrep -m 1 '_BUILT_IMAGE_SUFFIX:[[:space:]+"[[:print:]]+"' \
         "$DNSNAMEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]')
     egrep '[[:space:]]+[[:alnum:]].+_CACHE_IMAGE_NAME:[[:space:]+"[[:print:]]+"' \
-        "$DNSNAMEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]' | \
+        "$DNSNAMEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]' |
         sed -r -e "s/\\\$[{]_BUILT_IMAGE_SUFFIX[}]/$_BIS/" | sort -u
 }
 
@@ -80,8 +78,7 @@ show_usage() {
     echo -e "\n${RED}ERROR: $1${NOR}"
     echo -e "${YEL}Usage: $(basename $0) <image_name>${NOR}"
     echo ""
-    if [[ -r ".cirrus.yml" ]]
-    then
+    if [[ -r ".cirrus.yml" ]]; then
         echo -e "${YEL}Some possible image_name values (from .cirrus.yml):${NOR}"
         image_hints
         echo ""
@@ -101,18 +98,16 @@ for k,v in env.items():
     '
 }
 
-parse_args(){
+parse_args() {
     echo -e "$USAGE_WARNING"
 
-    if [[ "$USER" =~ "root" ]]
-    then
+    if [[ "$USER" =~ "root" ]]; then
         show_usage "This script must be run as a regular user."
     fi
 
     ENVS="$(get_env_vars)"
     IMAGE_NAME="$1"
-    if [[ -z "$IMAGE_NAME" ]]
-    then
+    if [[ -z "$IMAGE_NAME" ]]; then
         show_usage "No image-name specified."
     fi
 
@@ -126,7 +121,7 @@ parse_args(){
 
 ##### main
 
-[[ "${DNSNAMEROOT%%${DNSNAMEROOT##$HOME}}" == "$HOME" ]] || \
+[[ "${DNSNAMEROOT%%${DNSNAMEROOT##$HOME}}" == "$HOME" ]] ||
     show_usage "Repo clone must be sub-dir of $HOME"
 
 cd "$DNSNAMEROOT"
@@ -144,9 +139,8 @@ chmod 700 {$HOME,$TMPDIR}/.config/gcloud/ssh $TMPDIR/.ssh
 cd $DNSNAMEROOT
 
 # Attempt to determine if named 'dnsname' gcloud configuration exists
-showrun $PGCLOUD info > $TMPDIR/gcloud-info
-if egrep -q "Account:.*None" $TMPDIR/gcloud-info
-then
+showrun $PGCLOUD info >$TMPDIR/gcloud-info
+if egrep -q "Account:.*None" $TMPDIR/gcloud-info; then
     echo -e "\n${YEL}WARNING: Can't find gcloud configuration for 'dnsname', running init.${NOR}"
     echo -e "         ${RED}Please choose '#1: Re-initialize' and 'login' if asked.${NOR}"
     echo -e "         ${RED}Please set Compute Region and Zone (if asked) to 'us-central1-b'.${NOR}"
@@ -154,17 +148,16 @@ then
     showrun $PGCLOUD init --project=$PROJECT --console-only --skip-diagnostics
 
     # Verify it worked (account name == someone@example.com)
-    $PGCLOUD info > $TMPDIR/gcloud-info-after-init
-    if egrep -q "Account:.*None" $TMPDIR/gcloud-info-after-init
-    then
+    $PGCLOUD info >$TMPDIR/gcloud-info-after-init
+    if egrep -q "Account:.*None" $TMPDIR/gcloud-info-after-init; then
         echo -e "${RED}ERROR: Could not initialize 'dnsname' configuration in gcloud.${NOR}"
         exit 5
     fi
 
     # If this is the only config, make it the default to avoid persistent warnings from gcloud
-    [[ -r "$HOME/.config/gcloud/configurations/config_default" ]] || \
+    [[ -r "$HOME/.config/gcloud/configurations/config_default" ]] ||
         ln "$HOME/.config/gcloud/configurations/config_dnsname" \
-           "$HOME/.config/gcloud/configurations/config_default"
+            "$HOME/.config/gcloud/configurations/config_default"
 fi
 
 # Couldn't make rsync work with gcloud's ssh wrapper: ssh-keys generated on the fly
@@ -172,7 +165,7 @@ TARBALL=$VMNAME.tar.bz2
 echo -e "\n${YEL}Packing up local repository into a tarball.${NOR}"
 showrun --background tar cjf $TMPDIR/$TARBALL --warning=no-file-changed --exclude-vcs-ignores -C $DNSNAMEROOT .
 
-trap delvm INT  # Allow deleting VM if CTRL-C during create
+trap delvm INT # Allow deleting VM if CTRL-C during create
 # This fails if VM already exists: permit this usage to re-init
 echo -e "\n${YEL}Trying to create a VM named $VMNAME\n${RED}(might take a minute/two.  Errors ignored).${NOR}"
 showrun $CREATE_CMD || true # allow re-running commands below when "delete: N"
@@ -183,12 +176,10 @@ trap delvm EXIT
 echo -e "\n${YEL}Retrying for 30s for ssh port to open (may give some errors)${NOR}"
 trap 'COUNT=9999' INT
 ATTEMPTS=10
-for (( COUNT=1 ; COUNT <= $ATTEMPTS ; COUNT++ ))
-do
+for ((COUNT = 1; COUNT <= $ATTEMPTS; COUNT++)); do
     if $SSH_CMD --command "true"; then break; else sleep 3s; fi
 done
-if (( COUNT > $ATTEMPTS ))
-then
+if ((COUNT > $ATTEMPTS)); then
     echo -e "\n${RED}Failed${NOR}"
     exit 7
 fi
