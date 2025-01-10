@@ -29,6 +29,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,37 +43,51 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func cleanUp(podname string, dnsNameConf dnsNameFile, multiDomain bool) error {
+func cleanUp(podname string, dnsNameConf dnsNameFile, multiDomain bool, ips []*net.IPNet) error {
 	if err := deleteIPTablesChain(dnsNameConf.NetworkInterface); err != nil {
 		return err
 	}
-	shouldHUP, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
+
+	hostsFileModified, err := removeFromFile(filepath.Join(filepath.Dir(dnsNameConf.PidFile), hostsFileName), podname)
 	if err != nil {
 		return err
 	}
-	if !shouldHUP {
+
+	if !hostsFileModified {
 		// if there are no hosts, we should just stop the dnsmasq instance to not take
 		// system resources
 		nameservers, err := getInterfaceAddresses(dnsNameConf)
 		if err != nil {
 			return err
 		}
+
 		if multiDomain {
 			if err := removeLocalServers(dnsNameConf, nameservers); err != nil {
 				return err
 			}
 		}
+
 		if err := dnsNameConf.stop(); err != nil {
 			return err
 		}
-		// remove netwoks dir
+
 		if err := os.RemoveAll(filepath.Dir(dnsNameConf.PidFile)); err != nil {
 			return err
 		}
+
 		return nil
 	}
-	// Now we need to HUP
-	return dnsNameConf.hup()
+
+	addonHostsModified, err := removeHostLinesByIP(dnsNameConf.AddOnHostsFile, ips)
+	if err != nil {
+		return err
+	}
+
+	if hostsFileModified || addonHostsModified {
+		return dnsNameConf.hup()
+	}
+
+	return nil
 }
 
 func cmdAdd(args *skel.CmdArgs) (err error) {
@@ -97,7 +112,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	domainBaseDir := filepath.Dir(dnsNameConf.PidFile)
 	// Check if the configuration file directory exists, else make it
 	if _, err := os.Stat(domainBaseDir); os.IsNotExist(err) {
-		if makeDirErr := os.MkdirAll(domainBaseDir, 0700); makeDirErr != nil {
+		if makeDirErr := os.MkdirAll(domainBaseDir, 0o700); makeDirErr != nil {
 			return makeDirErr
 		}
 	}
@@ -111,7 +126,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	defer func() {
 		if err != nil {
-			if err := cleanUp(podname, dnsNameConf, netConf.MultiDomain); err != nil {
+			if err := cleanUp(podname, dnsNameConf, netConf.MultiDomain, ips); err != nil {
 				logrus.Errorf("Can't cleanup: %v", err)
 			}
 		}
@@ -168,6 +183,12 @@ func cmdDel(args *skel.CmdArgs) error {
 	} else if result == nil {
 		return nil
 	}
+
+	ips, err := getIPs(result)
+	if err != nil {
+		return err
+	}
+
 	dnsNameConf, err := newDNSMasqFile(netConf.DomainName, result.Interfaces[0].Name, netConf.Name, netConf.MultiDomain)
 	if err != nil {
 		return err
@@ -185,7 +206,7 @@ func cmdDel(args *skel.CmdArgs) error {
 			logrus.Errorf("unable to release lock for %q: %v", dnsNameConfPath(), err)
 		}
 	}()
-	return cleanUp(podname, dnsNameConf, netConf.MultiDomain)
+	return cleanUp(podname, dnsNameConf, netConf.MultiDomain, ips)
 }
 
 func main() {
@@ -193,9 +214,7 @@ func main() {
 }
 
 func cmdCheck(args *skel.CmdArgs) error {
-	var (
-		conffiles []string
-	)
+	var conffiles []string
 	if err := findDNSMasq(); err != nil {
 		return ErrBinaryNotFound
 	}
