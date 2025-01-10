@@ -58,7 +58,7 @@ func checkForDNSMasqConfFile(conf dnsNameFile) error {
 		return err
 	}
 	// Generate the template and compile it.
-	return ioutil.WriteFile(conf.ConfigFile, newConfig, 0700)
+	return ioutil.WriteFile(conf.ConfigFile, newConfig, 0o700)
 }
 
 // addIPTablesChain adds dnsmasq iptables chain
@@ -106,7 +106,7 @@ func generateDNSMasqConfig(config dnsNameFile) ([]byte, error) {
 
 // appendToFile appends a new entry to the dnsmasqs hosts file
 func appendToFile(path, podname string, aliases []string, ips []*net.IPNet) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return err
 	}
@@ -143,6 +143,85 @@ func appendToFile(path, podname string, aliases []string, ips []*net.IPNet) erro
 		logrus.Debugf("appended %s: %s", path, entry)
 	}
 	return nil
+}
+
+func removeHostLinesByIP(path string, ips []*net.IPNet) (modified bool, err error) {
+	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
+	if err != nil {
+		return false, err
+	}
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			logrus.Errorf("Failed to close file %q: %v", path, err)
+		}
+	}()
+
+	var (
+		newContent strings.Builder
+		found      bool = false
+	)
+
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+
+		if len(fields) < 1 {
+			newContent.WriteString(line + "\n")
+
+			continue
+		}
+
+		ip := fields[0]
+
+		if ipMatches(ip, ips) {
+			found = true
+
+			logrus.Debugf("Removing line from file: %s", line)
+
+			continue
+		}
+
+		newContent.WriteString(line + "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		return false, err
+	}
+
+	if !found {
+		logrus.Infof("No matching IPs found for removal in file %q", path)
+
+		return false, nil
+	}
+
+	if err := f.Truncate(0); err != nil {
+		return false, err
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return false, err
+	}
+
+	if _, err := f.WriteString(newContent.String()); err != nil {
+		return false, err
+	}
+
+	logrus.Infof("Updated file %q with removed entries", path)
+
+	return true, nil
+}
+
+func ipMatches(ipStr string, ips []*net.IPNet) bool {
+	for _, ipNet := range ips {
+		if ipNet.IP.String() == ipStr {
+			return true
+		}
+	}
+
+	return false
 }
 
 // removeLineFromFile removes a given entry from the dnsmasq host file
@@ -212,7 +291,7 @@ func renameFile(oldpath, newpath string) {
 // of lines in the file
 func writeFile(path string, content []string) (int, error) {
 	var counter int
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return 0, err
 	}
