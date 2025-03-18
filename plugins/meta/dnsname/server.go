@@ -89,14 +89,14 @@ func addServersToInstance(networkName, domainName string, serverItems []string) 
 		return nil, err
 	}
 	ownServerItems, err := readServerItems(conf.OwnServersConfFile)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	if isDomainInList(domainName, ownServerItems) {
 		return nil, errors.Errorf("domain %s already exists", domainName)
 	}
 	curServerItems, err := readServerItems(conf.LocalServersConfFile)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	mergedServerItems, modified := mergeServerItems(curServerItems, serverItems)
